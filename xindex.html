@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Schedule Tracker</title>
+<style>
+  :root{--bg:#0f1420;--card:#18202f;--line:#2a3550;--text:#e8edf7;--mute:#8d9ab5;--accent:#5eead4;--accent2:#818cf8;--done:#34d399;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:1.5rem;margin:0}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:10px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#07201c;border-color:var(--accent);font-weight:600}
+  input[type=password]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c111b;color:var(--text);font:inherit;margin:6px 0}
+  /* lock screen */
+  #lock{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+  .lockbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:360px}
+  .lockbox h2{margin:0 0 6px}
+  .lockbox p{color:var(--mute);font-size:.9rem;margin:0 0 10px}
+  #lockMsg{color:#fb7185;font-size:.85rem;min-height:1.2em}
+  /* header */
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .weeknav{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .weeknav span{font-weight:600}
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:18px}
+  .bar{height:10px;background:#0c111b;border-radius:99px;overflow:hidden;margin-top:8px}
+  .bar>div{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0;transition:width .3s}
+  .mute{color:var(--mute);font-size:.85rem}
+  .task{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .task h3{margin:0;font-size:1.05rem;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .task .meta{color:var(--mute);font-size:.85rem;margin:2px 0 10px}
+  .boxes{display:flex;flex-wrap:wrap;gap:8px}
+  .box{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;user-select:none;background:#0c111b;font-size:.9rem}
+  .box input{width:18px;height:18px;accent-color:var(--done);cursor:pointer}
+  .box.on{border-color:var(--done);background:#10261f}
+  .box small{display:block;color:var(--mute);font-size:.7rem}
+  .tools{margin-top:24px;display:flex;gap:8px;flex-wrap:wrap}
+  .hidden{display:none!important}
+  dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:14px;max-width:340px;width:90%}
+  dialog::backdrop{background:#000a}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock">
+  <div class="lockbox">
+    <h2 id="lockTitle">🔒 Schedule Tracker</h2>
+    <p id="lockSub"></p>
+    <input type="password" id="pw1" placeholder="Password" autocomplete="off">
+    <input type="password" id="pw2" placeholder="Confirm password" class="hidden" autocomplete="off">
+    <div id="lockMsg"></div>
+    <button class="primary" id="lockBtn" style="width:100%">Unlock</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="wrap hidden" id="app">
+  <header>
+    <h1>📅 My Weekly Schedule</h1>
+    <div>
+      <button id="chgPw">Change password</button>
+      <button id="lockNow">Lock</button>
+    </div>
+  </header>
+
+  <div class="weeknav">
+    <button id="prevW">◀</button>
+    <span id="weekLabel"></span>
+    <button id="nextW">▶</button>
+    <button id="thisW">This week</button>
+  </div>
+
+  <div class="summary">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <strong id="sumText"></strong>
+      <span class="mute" id="allTime"></span>
+    </div>
+    <div class="bar"><div id="sumBar"></div></div>
+  </div>
+
+  <div id="tasks"></div>
+
+  <div class="tools">
+    <button id="exportBtn">⬇ Export backup</button>
+    <button id="importBtn">⬆ Import backup</button>
+    <input type="file" id="importFile" accept=".json" class="hidden">
+  </div>
+  <p class="mute">Your ticks are saved automatically in this browser. Export a backup now and then so nothing is lost if browser data is cleared.</p>
+</div>
+
+<dialog id="pwDialog">
+  <form method="dialog" id="pwForm">
+    <h3 style="margin-top:0">Change password</h3>
+    <input type="password" id="oldPw" placeholder="Current password" autocomplete="off">
+    <input type="password" id="newPw" placeholder="New password" autocomplete="off">
+    <div id="pwMsg" class="mute" style="color:#fb7185;min-height:1.2em"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" id="pwCancel">Cancel</button>
+      <button type="button" class="primary" id="pwSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/* ===== SCHEDULE DEFINITION (edit here to change your plan) ===== */
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const TASKS = [
+  {id:"college", name:"College Class Topics", hours:3.5, perSession:0.5, labels:DAYS,
+   note:"30 mins daily"},
+  {id:"python",  name:"Python Learning", hours:6, perSession:1, count:6,
+   note:"1 hour, 6 days a week"},
+  {id:"cpp",     name:"C++ Learning", hours:3, perSession:0.5, count:6,
+   note:"30 mins, 6 days a week"},
+  {id:"tinker",  name:"Tinkercad Simulation", hours:3, perSession:1, count:3,
+   note:"1 hour, 3 days a week"},
+  {id:"april",   name:"Project APRIL Build", hours:3, perSession:1, count:3,
+   note:"1 hour, 3 days a week"}
+];
+const TOTAL_HOURS = TASKS.reduce((s,t)=>s+t.hours,0);
+
+/* ===== STORAGE ===== */
+const KEY_PW = "sched_pw_hash_v1";
+const KEY_DATA = "sched_data_v1";
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY_DATA)) || {weeks:{}}; }catch(e){ return {weeks:{}}; } }
+function save(d){ try{ localStorage.setItem(KEY_DATA, JSON.stringify(d)); }catch(e){ alert("Could not save data."); } }
+let data = load();
+
+/* ===== PASSWORD ===== */
+async function hash(s){
+  if(window.crypto && crypto.subtle){
+    const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("sched::"+s));
+    return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join("");
+  }
+  let h=5381; for(const c of "sched::"+s) h=((h<<5)+h+c.charCodeAt(0))>>>0; return "f"+h;
+}
+const $ = id => document.getElementById(id);
+const hasPw = () => !!localStorage.getItem(KEY_PW);
+
+function setupLock(){
+  if(hasPw()){
+    $("lockTitle").textContent="🔒 Enter password";
+    $("lockSub").textContent="This tracker is private.";
+    $("pw2").classList.add("hidden"); $("lockBtn").textContent="Unlock";
+  }else{
+    $("lockTitle").textContent="🔑 Set your password";
+    $("lockSub").textContent="First time here. Choose a password (min 4 characters). You'll use it every time.";
+    $("pw2").classList.remove("hidden"); $("lockBtn").textContent="Save & Enter";
+  }
+}
+$("lockBtn").onclick = async ()=>{
+  const p=$("pw1").value; $("lockMsg").textContent="";
+  if(hasPw()){
+    if(await hash(p)===localStorage.getItem(KEY_PW)) enter();
+    else $("lockMsg").textContent="Wrong password.";
+  }else{
+    if(p.length<4) return $("lockMsg").textContent="Use at least 4 characters.";
+    if(p!==$("pw2").value) return $("lockMsg").textContent="Passwords don't match.";
+    localStorage.setItem(KEY_PW, await hash(p)); enter();
+  }
+};
+[$("pw1"),$("pw2")].forEach(e=>e.addEventListener("keydown",ev=>{ if(ev.key==="Enter") $("lockBtn").click(); }));
+function enter(){ $("lock").classList.add("hidden"); $("app").classList.remove("hidden"); $("pw1").value=$("pw2").value=""; render(); }
+$("lockNow").onclick = ()=>{ $("app").classList.add("hidden"); $("lock").classList.remove("hidden"); setupLock(); };
+
+$("chgPw").onclick = ()=>{ $("oldPw").value=$("newPw").value=""; $("pwMsg").textContent=""; $("pwDialog").showModal(); };
+$("pwCancel").onclick = ()=>$("pwDialog").close();
+$("pwSave").onclick = async ()=>{
+  if(await hash($("oldPw").value)!==localStorage.getItem(KEY_PW)) return $("pwMsg").textContent="Current password is wrong.";
+  if($("newPw").value.length<4) return $("pwMsg").textContent="Use at least 4 characters.";
+  localStorage.setItem(KEY_PW, await hash($("newPw").value)); $("pwDialog").close();
+};
+
+/* ===== WEEKS ===== */
+let weekStart = mondayOf(new Date());
+function mondayOf(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const w=(x.getDay()+6)%7; x.setDate(x.getDate()-w); return x; }
+function wkKey(d){ const p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+function fmt(d){ return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}); }
+$("prevW").onclick=()=>{ weekStart.setDate(weekStart.getDate()-7); render(); };
+$("nextW").onclick=()=>{ weekStart.setDate(weekStart.getDate()+7); render(); };
+$("thisW").onclick=()=>{ weekStart=mondayOf(new Date()); render(); };
+
+/* ===== RENDER ===== */
+function render(){
+  const key=wkKey(weekStart);
+  const end=new Date(weekStart); end.setDate(end.getDate()+6);
+  $("weekLabel").textContent = fmt(weekStart)+" – "+fmt(end)+" "+end.getFullYear();
+  const wk = data.weeks[key] || {};
+  const box=$("tasks"); box.innerHTML="";
+  let doneH=0;
+  TASKS.forEach(t=>{
+    const n = t.labels ? t.labels.length : t.count;
+    const arr = wk[t.id] || [];
+    let c=0;
+    const div=document.createElement("div"); div.className="task";
+    let html="";
+    for(let i=0;i<n;i++){
+      const stamp = arr[i]; const on=!!stamp; if(on) c++;
+      const lbl = t.labels ? t.labels[i] : "Session "+(i+1);
+      html+=`<label class="box ${on?"on":""}"><input type="checkbox" data-t="${t.id}" data-i="${i}" ${on?"checked":""}><span>${lbl}<small>${on?"done "+new Date(stamp).toLocaleDateString(undefined,{day:"numeric",month:"short"}):t.perSession*60+" min"}</small></span></label>`;
+    }
+    doneH += c*t.perSession;
+    div.innerHTML=`<h3><span>${t.name}</span><span class="mute">${c*t.perSession} / ${t.hours} h</span></h3><div class="meta">${t.note}</div><div class="boxes">${html}</div>`;
+    box.appendChild(div);
+  });
+  const pct=Math.round(doneH/TOTAL_HOURS*100);
+  $("sumText").textContent=`This week: ${doneH} / ${TOTAL_HOURS} hours (${pct}%)`;
+  $("sumBar").style.width=pct+"%";
+  $("allTime").textContent="All-time: "+allTimeHours()+" hours completed";
+  box.querySelectorAll("input").forEach(cb=>cb.onchange=()=>toggle(cb.dataset.t,+cb.dataset.i,cb.checked));
+}
+function toggle(tid,i,on){
+  const key=wkKey(weekStart);
+  data.weeks[key]=data.weeks[key]||{};
+  const t=TASKS.find(x=>x.id===tid);
+  const n=t.labels?t.labels.length:t.count;
+  const arr=data.weeks[key][tid]||new Array(n).fill(null);
+  arr[i]=on?new Date().toISOString():null;
+  data.weeks[key][tid]=arr; save(data); render();
+}
+function allTimeHours(){
+  let h=0;
+  for(const k in data.weeks) for(const t of TASKS){
+    const a=data.weeks[k][t.id]||[]; h+=a.filter(Boolean).length*t.perSession;
+  }
+  return h;
+}
+
+/* ===== BACKUP ===== */
+$("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="schedule-backup-"+wkKey(new Date())+".json"; a.click();
+};
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.weeks) throw 0; data=d; save(data); render(); alert("Backup restored."); }catch(x){ alert("Invalid backup file."); } };
+  r.readAsText(f); e.target.value="";
+};
+
+setupLock();
+</script>
+</body>
+</html>
